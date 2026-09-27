@@ -1,2 +1,2 @@
 #My new project
-Built with VScode and supabase
+Built with VScode and SUPABASE 

@@ -1,27 +1,28 @@
-Import react, {useEffect, useState} from 'react'
-Import {supabase} from './supabaseClient'
+import React, { useEffect, useState } from 'react'
+import { supabase } from './supabaseClient'
 
-Function App() {
-    Const [status, setStatus] = useState('Checking database connection...')
-    
-    UseEffect(() => {
-        Async function testConnection() {
+function App() {
+    const [status, setStatus] = useState('Checking database connection...')
+
+    useEffect(() => {
+        async function testConnection() {
             // Pulls current Auth state to verify your keys are valid
-            Const {data, error} = await supabase.auth.getSession()
-            If (error){
-                SetStatus('❌ Connection Error:' + error.message)
+            const { data, error } = await supabase.auth.getSession()
+            if (error) {
+                setStatus('❌ Connection Error: ' + error.message)
             } else {
-                SetStatus('⚡ Connected to Supabase Successfully!')
+                setStatus('⚡ Connected to Supabase Successfully!')
             }
         }
-        TestConnection()
-    },[])
+        testConnection()
+    }, [])
 
-    Return (
-        <div style={{fontfamily:'sans-serif',padding:'2rem',textAlign:"center"}}>
+    return (
+        <div style={{ fontFamily: 'sans-serif', padding: '2rem', textAlign: 'center' }}>
             <h1>My Cross-Device Application</h1>
-            <p style={{fontsize: '1.2rem', color:'#4caf50'}}>{status}</p>
-            </div>
-        )
-    }
-Export default app
+            <p style={{ fontSize: '1.2rem', color: '#4caf50' }}>{status}</p>
+        </div>
+    )
+}
+
+export default App
