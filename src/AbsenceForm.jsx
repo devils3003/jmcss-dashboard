@@ -163,7 +163,9 @@ export default function AbsenceForm({ onLogAdded }) {
           <select required value={absentStaffId} onChange={(e) => setAbsentStaffId(e.target.value)} style={inputStyle}>
             <option value="">-- Select Absent Staff ({filteredAbsentStaffList.length} found) --</option>
             {filteredAbsentStaffList.map(person => (
-              <option key={person.id} value={person.id}>{(person['First Name'] || '') + ' ' + (person['Last Name'] || '')}</option>
+              <option key={person['Staff ID']} value={person['Staff ID']}>
+               {(person['First Name'] || '') + ' ' + (person['Last Name'] || '')}
+              </option>
             ))}
           </select>
         </div>
@@ -205,7 +207,7 @@ export default function AbsenceForm({ onLogAdded }) {
                   <input type="text" placeholder="Search covering staff..." value={assignment.covering_search_text || ''} onChange={(e) => handleAssignmentChange(index, 'covering_search_text', e.target.value)} style={searchInputStyle} />
                   <select value={assignment.covering_staff_id} onChange={(e) => handleAssignmentChange(index, 'covering_staff_id', e.target.value)} style={inputStyle}>
                     <option value="">-- Select Covering Staff --</option>
-                    {filteredCoverStaff.map(p => <option key={p.id} value={p.id}>{p['First Name']} {p['Last Name']}</option>)}
+                    {filteredCoverStaff.map(p => <option key={p['Staff ID']} value={p['Staff ID']}>{(p['First Name'] || '') + ' ' + (p['Last Name'] || '')}</option>)}
                   </select>
                 </div>
               </div>
