@@ -103,45 +103,47 @@ export default function ArrivalPerformanceUploader({ onUploadComplete }) {
         }
 
         const formattedPayload = parsedRows.map(row => ({
-          school_number: row['school_number'] || row['school_no'] || null,
-          school_name: row['school_name'] || row['school'] || null,
-          bell_time: formatTime(row['bell_time']),
-          bus_number: row['bus_number'] || row['bus_no'] || row['bus'] || null,
-          route_id: row['route_id'] || null,
-          run_id: row['run_id'] || null,
-          avg_arrival_time: formatTime(row['avg_arrival_time'] || row['arrival_time']),
-          week_start_date: formatDate(row['week_start_date'] || row['week_start']),
-          week_end_date: formatDate(row['week_end_date'] || row['week_end'])
-        })).filter(item => item.week_start_date && item.avg_arrival_time);
+      school_number: row['school_number'] || row['school_no'] || null,
+      school_name: row['school_name'] || row['school'] || null,
+      bell_time: formatTime(row['bell_time']),
+      bus_number: row['bus_number'] || row['bus_no'] || row['bus'] || null,
+      route_id: row['route_id'] || null,
+      run_id: row['run_id'] || null,
+      avg_arrival_time: formatTime(row['avg_arrival_time'] || row['arrival_time']),
+      week_start_date: formatDate(row['week_start_date'] || row['week_start']),
+      week_end_date: formatDate(row['week_end_date'] || row['week_end'])
+    })).filter(item => item.week_start_date && item.avg_arrival_time);
 
-        if (formattedPayload.length === 0) {
-          throw new Error('No valid rows found matching required fields (week_start_date, avg_arrival_time).');
-        }
+    // 1. Deduplicate including avg_arrival_time (allows 2nd runs while dropping identical duplicates)
+    const uniquePayload = Array.from(
+      formattedPayload.reduce((map, item) => {
+        const key = `${item.school_number}-${item.bus_number}-${item.run_id}-${item.avg_arrival_time}-${item.week_start_date}`;
+        map.set(key, item);
+        return map;
+      }, new Map()).values()
+    );
 
-        setStatusMessage({ type: 'info', text: `Uploading ${formattedPayload.length} normalized rows to Supabase...` });
+    if (uniquePayload.length === 0) {
+      throw new Error('No valid rows found matching required fields (week_start_date, avg_arrival_time).');
+    }
 
-        const { error } = await supabase
-          .from('run_arrival_performances')
-          .upsert(formattedPayload, { 
-            onConflict: 'school_number,bus_number,run_id,avg_arrival_time,week_start_date',
-            ignoreDuplicates: true 
-          });
+    // 2. Perform the upsert using uniquePayload and all 5 key columns
+    const { data, error } = await supabase
+      .from('run_arrival_performances')
+      .upsert(uniquePayload, {
+        onConflict: 'school_number,bus_number,run_id,avg_arrival_time,week_start_date',
+        ignoreDuplicates: false
+      });
 
-        if (error) throw error;
+    if (error) throw error;
 
-        setStatusMessage({
-          type: 'success',
-          text: `Successfully uploaded batch! ${formattedPayload.length} arrival performance records processed.`
-        });
-
-        if (onUploadComplete) onUploadComplete();
-      } catch (err) {
-        console.error('CSV Upload Error:', err);
-        setStatusMessage({ type: 'error', text: `Upload failed: ${err.message}` });
-      } finally {
-        setLoading(false);
-      }
-    };
+    setStatusMessage({ type: 'success', text: 'CSV uploaded and processed successfully!' });
+  } catch (err) {
+    setStatusMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+  } finally {
+    setLoading(false);
+  }
+};
 
     reader.readAsText(file);
   };
