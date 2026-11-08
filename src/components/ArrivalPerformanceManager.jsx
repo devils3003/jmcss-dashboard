@@ -82,7 +82,7 @@ export default function ArrivalPerformanceManager() {
 
     // Default: Filter runs matching this bus/route number
     const routeIdentifier = String(row.route_id || row.bus_number || '').trim().toLowerCase();
-    
+
     if (!routeIdentifier) return availableRuns;
 
     const matched = availableRuns.filter(r => {
@@ -96,8 +96,8 @@ export default function ArrivalPerformanceManager() {
 
   const filteredRecords = records.filter(r => {
     const search = searchFilter.toLowerCase();
-    
-    const matchesSearch = 
+
+    const matchesSearch =
       (r.school_name && r.school_name.toLowerCase().includes(search)) ||
       (r.bus_number && r.bus_number.toLowerCase().includes(search)) ||
       (r.run_id && r.run_id.toLowerCase().includes(search));
@@ -113,7 +113,7 @@ export default function ArrivalPerformanceManager() {
 
   return (
     <div style={{ backgroundColor: '#0f172a', color: '#cbd5e1', padding: '24px', borderRadius: '8px', border: '1px solid #334155', width: '100%', boxSizing: 'border-box' }}>
-      
+
       {/* Header & Controls */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #1e293b', paddingBottom: '16px' }}>
         <div>
@@ -219,35 +219,82 @@ export default function ArrivalPerformanceManager() {
               </tr>
             ) : (
               filteredRecords.map((row) => {
+                // 1. ALL CONST VARIABLES GO HERE (BEFORE return)
                 const matchingRuns = getMatchingRunsForRow(row);
                 const hasAssignedRun = row.run_id && row.run_id !== '-' && row.run_id !== 'N/A';
-                const isSpecialRun = row.is_second_run || row.is_covered_run;
 
+                const isSecondRun = Boolean(row.is_second_run);
+                const isAbsenceCovered = Boolean(row.has_absence_log || row.is_covered_run);
+                const isSpecialRun = isSecondRun || isAbsenceCovered;
+
+                // 2. RETURN JSX BLOCK
                 return (
-                  <tr 
-                    key={row.id} 
-                    style={{ 
+                  <tr
+                    key={row.id}
+                    style={{
                       borderBottom: '1px solid #1e293b',
-                      backgroundColor: row.exclude_from_heatmap ? '#090d16' : 'transparent',
-                      opacity: row.exclude_from_heatmap ? 0.5 : 1
+                      opacity: row.exclude_from_heatmap ? 0.5 : 1,
+                      backgroundColor: row.exclude_from_heatmap
+                        ? '#090d16'
+                        : isSecondRun
+                          ? 'rgba(245, 158, 11, 0.15)'
+                          : isAbsenceCovered
+                            ? 'rgba(59, 130, 246, 0.15)'
+                            : 'transparent'
                     }}
                   >
                     <td style={{ padding: '10px 14px', color: '#e2e8f0', fontWeight: '500' }}>
                       {row.school_name} <span style={{ fontSize: '11px', color: '#64748b' }}>({row.school_number})</span>
                     </td>
                     <td style={{ padding: '10px 14px', color: '#cbd5e1', fontWeight: 'bold' }}>{row.bus_number || '-'}</td>
-                    
+
                     {/* Run ID Column */}
                     <td style={{ padding: '10px 14px' }}>
                       {hasAssignedRun ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontFamily: 'monospace', fontSize: '12px', color: isSpecialRun ? '#fbbf24' : '#38bdf8', fontWeight: 'bold' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px', color: isSpecialRun ? '#38bdf8' : '#e2e8f0' }}>
                             {row.run_id}
                           </span>
+
+                          {/* Absence Coverage Badge */}
+                          {isAbsenceCovered && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                backgroundColor: '#1e3a8a',
+                                color: '#93c5fd',
+                                border: '1px solid #3b82f6',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold'
+                              }}
+                              title={row.covering_driver_name ? `Covered by ${row.covering_driver_name}` : 'Logged in Absence Tracker'}
+                            >
+                              📋 COVERED
+                            </span>
+                          )}
+
+                          {/* Second Run Badge */}
+                          {isSecondRun && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                backgroundColor: '#78350f',
+                                color: '#fde68a',
+                                border: '1px solid #f59e0b',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              🔄 2ND RUN
+                            </span>
+                          )}
+
                           <button
                             onClick={() => updateRecordFlag(row.id, 'run_id', null)}
                             title="Re-assign Run ID"
-                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '11px', padding: 0 }}
+                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0 }}
                           >
                             ✏️
                           </button>
@@ -271,9 +318,9 @@ export default function ArrivalPerformanceManager() {
                           <option value="">
                             {isSpecialRun ? '-- All Runs (Covered/2nd) --' : '-- Select Run --'}
                           </option>
-                          {matchingRuns.map((r, i) => (
-                            <option key={`${r.run_id}-${i}`} value={r.run_id}>
-                              {r.run_id} ({r.route_id})
+                          {matchingRuns.map((r) => (
+                            <option key={r.run_id} value={r.run_id}>
+                              {r.run_id} ({r.school_name})
                             </option>
                           ))}
                         </select>
@@ -281,9 +328,9 @@ export default function ArrivalPerformanceManager() {
                     </td>
 
                     <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: '12px', color: '#cbd5e1' }}>{row.avg_arrival_time}</td>
-                    <td style={{ 
-                      padding: '10px 14px', 
-                      textAlign: 'center', 
+                    <td style={{
+                      padding: '10px 14px',
+                      textAlign: 'center',
                       fontWeight: 'bold',
                       color: row.minutes_late > 10 ? '#f87171' : row.minutes_late > 0 ? '#fbbf24' : '#34d399'
                     }}>
