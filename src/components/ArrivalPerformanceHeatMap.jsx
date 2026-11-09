@@ -9,27 +9,34 @@ export default function ArrivalPerformanceHeatMap() {
   const [error, setError] = useState(null);
 
   const fetchHeatMap = async () => {
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    const viewName = shiftMode === 'PM' ? 'v_pm_arrival_heatmap_with_counts' : 'v_arrival_heatmap_with_counts';
+  try {
+    // Query our unified v_run_manager_with_coverage view for both AM and PM
+    let query = supabase
+      .from('v_run_manager_with_coverage')
+      .select('*')
+      .eq('record_date', weekStartDate); // or your date column filter
 
-    try {
-      const { data, error: fetchErr } = await supabase
-        .from(viewName)
-        .select('*')
-        .eq('week_start_date', weekStartDate)
-        .order('school_name', { ascending: true });
-
-      if (fetchErr) throw fetchErr;
-      setHeatmapData(data || []);
-    } catch (err) {
-      console.error(`Error loading ${shiftMode} heatmap:`, err);
-      setError(`Failed to load ${shiftMode} heatmap data.`);
-    } finally {
-      setLoading(false);
+    // Filter AM vs PM based on the _DO suffix in run_id
+    if (shiftMode === 'PM') {
+      query = query.ilike('run_id', '%_DO%');
+    } else {
+      query = query.not.ilike('run_id', '%_DO%');
     }
-  };
+
+    const { data, error: fetchErr } = await query.order('school_name', { ascending: true });
+
+    if (fetchErr) throw fetchErr;
+    setHeatmapData(data || []);
+  } catch (err) {
+    console.error(`Error loading ${shiftMode} heatmap:`, err);
+    setError(`Failed to load ${shiftMode} heatmap data.`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchHeatMap();
