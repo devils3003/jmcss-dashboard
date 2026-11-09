@@ -48,6 +48,20 @@ export default function ArrivalPerformanceHeatMap() {
     return { total, lateRuns, onTimeRuns, impactedStudents };
   }, [heatmapData]);
 
+const getRunColorClass = (run) => {
+    if (run.is_second_run || run.is_covered_run || run.run_tag === 'Second' || run.run_tag === 'Covered') {
+      return 'bg-blue-600 text-blue-100 border-blue-400';
+    }
+    if (run.exclude_from_heatmap || run.run_tag === 'Ignore') {
+      return 'bg-gray-800 text-gray-500 border-gray-700';
+    }
+    const minutesLate = Number(run.minutes_late || run.delay_minutes || 0);
+    if (minutesLate > 10) {
+      return 'bg-red-950 text-red-200 border-red-700';
+    }
+    return 'bg-emerald-950 text-emerald-200 border-emerald-700';
+  };
+
   // Group records by School Name (Filtering out omitted runs)
   const schoolGroups = useMemo(() => {
     const groups = {};
@@ -295,34 +309,35 @@ export default function ArrivalPerformanceHeatMap() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {group.runs.map((row) => {
                     const minutesLate = Number(row.minutes_late || 0);
-                    const isLate = minutesLate > 10;
-                    const isSecond = row.is_second_run;
-                    const isCovered = row.is_covered_run;
-                    const studentCount = Number(row.estimated_impacted_students || 0);
+    const isSecond = row.is_second_run;
+    const isCovered = row.is_covered_run;
+    const isLate = minutesLate > 10;
+    const studentCount = Number(row.estimated_impacted_students || 0);
 
-                    const pillBg = isLate
-                      ? '#7f1d1d'
-                      : isSecond
-                        ? '#78350f'
-                        : isCovered
-                          ? '#1e3a8a'
-                          : '#064e3b';
+    // Prioritize Second / Covered (Blue) FIRST, then Late (Red), then On-Time (Green)
+    const pillBg = isSecond
+      ? '#1e3a8a'     // Deep blue for second run
+      : isCovered
+      ? '#1e3a8a'     // Blue for covered run (or use #064e3b if you want distinct greens/blues)
+      : isLate
+      ? '#7f1d1d'     // Red for late
+      : '#064e3b';    // Green for on-time
 
-                    const pillBorder = isLate
-                      ? '#ef4444'
-                      : isSecond
-                        ? '#f59e0b'
-                        : isCovered
-                          ? '#3b82f6'
-                          : '#10b981';
+    const pillBorder = isSecond
+      ? '#3b82f6'     // Bright blue border
+      : isCovered
+      ? '#3b82f6'     // Bright blue border
+      : isLate
+      ? '#ef4444'     // Red border
+      : '#10b981';    // Green border
 
-                    const pillTextColor = isLate
-                      ? '#fca5a5'
-                      : isSecond
-                        ? '#fde68a'
-                        : isCovered
-                          ? '#93c5fd'
-                          : '#6ee7b7';
+    const pillTextColor = isSecond
+      ? '#93c5fd'     // Light blue text
+      : isCovered
+      ? '#93c5fd'     // Light blue text
+      : isLate
+      ? '#fca5a5'     // Light red text
+      : '#6ee7b7';    // Light green text
 
                     return (
                       <div
@@ -350,16 +365,16 @@ export default function ArrivalPerformanceHeatMap() {
                           ({row.avg_arrival_time || '—'})
                         </span>
                         <span style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>
-                          {isLate ? (
-                            `+${minutesLate}m LATE`
-                          ) : isSecond ? (
-                            '🔄 2ND RUN'
-                          ) : isCovered ? (
-                            '📋 COVERED'
-                          ) : (
-                            '✓ ON-TIME'
-                          )}
-                        </span>
+  {isSecond ? (
+    `2ND RUN`
+  ) : isCovered ? (
+    `COVERED`
+  ) : isLate ? (
+    `+${minutesLate}m LATE`
+  ) : (
+    `ON-TIME`
+  )}
+</span>
                         {studentCount > 0 && (
                           <span
                             style={{
