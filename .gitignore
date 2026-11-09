@@ -12,4 +12,7 @@ Yarn=error.log*
 
 #Operating System files
 .DS_Store
-Thumbs.db
+Thumbs.dbnode_modules
+dist
+node_modules
+dist
