@@ -7,8 +7,8 @@ import ArrivalPerformanceManager from './components/ArrivalPerformanceManager'
 import ArrivalPerformanceHeatMap from './components/ArrivalPerformanceHeatMap'
 
 function App() {
-  const [showReport, setShowReport] = useState(true)
-  const [showHeatMap, setShowHeatMap] = useState(true)
+  const [showReport, setShowReport] = useState(false)
+  const [showHeatMap, setShowHeatMap] = useState(false)
   const [showManager, setShowManager] = useState(false)
   const [showLateReport, setShowLateReport] = useState(false)
 

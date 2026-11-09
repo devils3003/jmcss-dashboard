@@ -8,24 +8,28 @@ export default function ArrivalPerformanceManager() {
   const [loading, setLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [showOnlyLate, setShowOnlyLate] = useState(false);
+  const [selectedShift, setSelectedShift] = useState('ALL');
 
   // Fetch performance records and master runs table
   const fetchWeekRecords = async () => {
     setLoading(true);
     try {
-      // 1. Fetch performance records
+      // 1. Fetch from your updated view instead of the base table
       let query = supabase
-        .from('run_arrival_performances')
+        .from('v_run_manager_with_coverage') // <-- Update to your view name
         .select('*')
         .eq('week_start_date', selectedWeek)
         .order('school_name', { ascending: true });
 
       if (showOnlyLate) {
-        query = query.or('minutes_late.gt.10,is_late_10_plus.eq.true');
+        // Use your new calculated column or standard minutes_late logic
+        query = query.or('calculated_minutes_late.gt.10,is_late_10_plus.eq.true');
       }
 
       const { data: perfData, error: perfError } = await query;
       if (perfError) throw perfError;
+
+      // ... rest of your fetch logic
 
       // 2. Fetch master runs list
       const { data: runMasterData, error: runMasterError } = await supabase
@@ -104,11 +108,23 @@ export default function ArrivalPerformanceManager() {
 
     const isOver10MinLate = Number(r.minutes_late) > 10 || r.is_late_10_plus === true;
 
-    if (showOnlyLate) {
-      return matchesSearch && isOver10MinLate;
+    // Bulletproof Shift Evaluation
+    const runIdStr = String(r.run_id || '');
+    const shiftStr = String(r.shift || '').toUpperCase();
+    const isPmRun = runIdStr.endsWith('_DO') || shiftStr === 'PM';
+
+    let matchesShift = true;
+    if (selectedShift === 'AM') {
+      matchesShift = !isPmRun;
+    } else if (selectedShift === 'PM') {
+      matchesShift = isPmRun;
     }
 
-    return matchesSearch;
+    if (showOnlyLate) {
+      return matchesSearch && isOver10MinLate && matchesShift;
+    }
+
+    return matchesSearch && matchesShift;
   });
 
   return (
@@ -186,8 +202,32 @@ export default function ArrivalPerformanceManager() {
               Late (&gt;10 min)
             </label>
           </div>
-        </div>
-      </div>
+
+          {/* AM / PM Toggle Buttons Container */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#1e293b', padding: '4px', borderRadius: '6px', border: '1px solid #334155', marginTop: '16px' }}>
+            {['ALL', 'AM', 'PM'].map((shift) => (
+              <button
+                key={shift}
+                onClick={() => setSelectedShift(shift)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  backgroundColor: selectedShift === shift ? '#0284c7' : 'transparent',
+                  color: selectedShift === shift ? '#ffffff' : '#94a3b8',
+                  border: 'none',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                {shift}
+              </button>
+            ))}
+          </div>
+
+        </div> {/* Closes the main Filter Toolbar container */}
+      </div>   {/* Closes the outer card container */}
 
       {/* Table Section */}
       <div style={{ overflowX: 'auto', borderRadius: '6px', border: '1px solid #1e293b' }}>
@@ -332,9 +372,9 @@ export default function ArrivalPerformanceManager() {
                       padding: '10px 14px',
                       textAlign: 'center',
                       fontWeight: 'bold',
-                      color: row.minutes_late > 10 ? '#f87171' : row.minutes_late > 0 ? '#fbbf24' : '#34d399'
+                      color: row.calculated_minutes_late > 10 ? '#f87171' : row.calculated_minutes_late > 0 ? '#fbbf24' : '#34d399'
                     }}>
-                      +{row.minutes_late || 0} min
+                      +{row.calculated_minutes_late || 0} min
                     </td>
 
                     {/* Checkboxes */}
@@ -371,6 +411,6 @@ export default function ArrivalPerformanceManager() {
           </tbody>
         </table>
       </div>
-    </div>
+    </div >
   );
 }

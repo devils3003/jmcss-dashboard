@@ -73,6 +73,7 @@ export default function AbsenceReport() {
 
             if (fetchErr) throw fetchErr;
             setReportData(data || []);
+            console.log('Supabase payload:', data);
         } catch (err) {
             console.error('Error loading absenteeism report:', err);
             setError('Failed to load report data. Please check network or Supabase view connection.');
@@ -190,8 +191,8 @@ export default function AbsenceReport() {
                     <button
                         onClick={() => setStatusFilter((prev) => (prev === 'Uncovered' ? 'ALL' : 'Uncovered'))}
                         className={`px-3.5 py-2 font-medium rounded-lg text-sm transition border flex items-center gap-2 ${statusFilter === 'Uncovered'
-                                ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-950/50'
-                                : 'bg-slate-800 hover:bg-slate-700 text-rose-400 border-rose-900/50'
+                            ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-950/50'
+                            : 'bg-slate-800 hover:bg-slate-700 text-rose-400 border-rose-900/50'
                             }`}
                     >
                         <span className={`w-2 h-2 rounded-full ${statusFilter === 'Uncovered' ? 'bg-white animate-pulse' : 'bg-rose-500'}`}></span>
@@ -202,8 +203,8 @@ export default function AbsenceReport() {
                     <button
                         onClick={() => setLateFilter((prev) => !prev)}
                         className={`px-3.5 py-2 font-medium rounded-lg text-sm transition border flex items-center gap-2 ${lateFilter
-                                ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-950/50'
-                                : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-900/50'
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-950/50'
+                            : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-900/50'
                             }`}
                     >
                         <span className={`w-2 h-2 rounded-full ${lateFilter ? 'bg-white animate-pulse' : 'bg-amber-500'}`}></span>
@@ -247,8 +248,8 @@ export default function AbsenceReport() {
                             key={preset.key}
                             onClick={() => applyDatePreset(preset.key)}
                             className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${activePreset === preset.key
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                                 }`}
                         >
                             {preset.label}
@@ -365,94 +366,80 @@ export default function AbsenceReport() {
             </div>
 
             {/* Main Report Table */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden shadow-lg">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden shadow-lg w-full">
                 {loading ? (
                     <div className="p-12 text-center text-slate-400 font-medium">Loading report records...</div>
                 ) : error ? (
                     <div className="p-12 text-center text-rose-400">{error}</div>
                 ) : filteredData.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400">No absence records found for the selected criteria.</div>
+                    <div className="p-12 text-center text-slate-400">No absence records found for this period.</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-300">
-                            <thead className="bg-slate-800 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700">
-                                <tr>
-                                    <th className="py-3.5 px-4 font-semibold">Date</th>
-                                    <th className="py-3.5 px-4 font-semibold">Shift</th>
-                                    <th className="py-3.5 px-4 font-semibold">Absent Staff</th>
-                                    <th className="py-3.5 px-4 font-semibold">Position</th>
-                                    <th className="py-3.5 px-4 font-semibold">Status</th>
-                                    <th className="py-3.5 px-4 font-semibold">Assigned Coverage & Runs</th>
-                                    <th className="py-3.5 px-4 font-semibold">On-Time Delay Impact</th>
-                                    <th className="py-3.5 px-4 font-semibold">Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-700/50">
-                                {filteredData.map((row) => {
-                                    const hasLateImpact = Number(row.late_runs_count) > 0;
+                    <div className="w-full space-y-3">
+                        {/* Header Row */}
+                        <div style={{ display: 'flex', backgroundColor: '#1e293b', padding: '12px 24px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <div style={{ flex: '1.2' }}>Date</div>
+                            <div style={{ flex: '1' }}>Shift</div>
+                            <div style={{ flex: '1.2' }}>Staff ID</div>
+                            <div style={{ flex: '2.5' }}>Absent Staff</div>
+                            <div style={{ flex: '2' }}>Position</div>
+                        </div>
 
-                                    return (
-                                        <tr key={row.log_id} className={`transition-colors ${hasLateImpact ? 'bg-amber-950/10 hover:bg-amber-950/20' : 'hover:bg-slate-800/60'}`}>
-                                            <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-200">{row.absence_date}</td>
-                                            <td className="py-3 px-4 whitespace-nowrap">
-                                                <span
-                                                    className={`px-2 py-0.5 rounded text-xs font-semibold ${row.shift === 'AM'
-                                                            ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                                                            : row.shift === 'PM'
-                                                                ? 'bg-indigo-950 text-indigo-300 border border-indigo-800'
-                                                                : 'bg-purple-950 text-purple-300 border border-purple-800'
-                                                        }`}
-                                                >
-                                                    {row.shift}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 whitespace-nowrap font-semibold text-white">{row.absent_staff_name}</td>
-                                            <td className="py-3 px-4 whitespace-nowrap text-slate-400">{row.staff_role || '—'}</td>
-                                            <td className="py-3 px-4 whitespace-nowrap">
-                                                <span
-                                                    className={`px-2.5 py-1 rounded-full text-xs font-bold ${row.coverage_status === 'Fully Covered'
-                                                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                                            : row.coverage_status === 'Split Coverage'
-                                                                ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                                                                : 'bg-rose-950 text-rose-400 border border-rose-800'
-                                                        }`}
-                                                >
-                                                    {row.coverage_status}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-slate-200 max-w-sm font-mono text-xs leading-relaxed" title={row.coverage_details}>
-                                                {row.coverage_details}
-                                            </td>
-                                            {/* Late Impact Column */}
-                                            <td className="py-3 px-4 whitespace-nowrap">
-                                                {hasLateImpact ? (
-                                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-950 text-amber-300 border border-amber-700/80 text-xs font-semibold" title={row.late_run_details}>
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                                                        {row.late_run_details}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-600 text-xs">On-Time / Untracked</span>
-                                                )}
-                                            </td>
-                                            <td className="py-3 px-4 text-slate-400 max-w-xs truncate">
-                                                {row.log_notes && row.log_notes !== 'EMPTY' && (
-                                                    <span className="text-slate-200 block font-medium">{row.log_notes}</span>
-                                                )}
-                                                {row.assignment_notes && (
-                                                    <span className="text-xs text-slate-400 block">{row.assignment_notes}</span>
-                                                )}
-                                                {(!row.log_notes || row.log_notes === 'EMPTY') && !row.assignment_notes && (
-                                                    <span className="text-slate-600">—</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        {/* Data Rows */}
+                        {filteredData.map((row) => {
+                            const hasLateImpact = Number(row.late_runs_count) > 0;
+                            return (
+                                <div
+                                    key={row.log_id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '16px 24px',
+                                        borderRadius: '8px',
+                                        backgroundColor: hasLateImpact ? 'rgba(127, 29, 29, 0.2)' : 'rgba(15, 23, 42, 0.4)',
+                                        border: hasLateImpact ? '1px solid rgba(153, 27, 27, 0.4)' : '1px solid rgba(30, 41, 59, 0.6)'
+                                    }}
+                                >
+                                    {/* Date */}
+                                    <div style={{ flex: '1.2', fontSize: '14px', color: '#cbd5e1', fontWeight: '500' }}>
+                                        {row.absence_date}
+                                    </div>
+
+                                    {/* Shift Badge */}
+                                    <div style={{ flex: '1' }}>
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            display: 'inline-block',
+                                            backgroundColor: row.shift === 'AM' ? '#082f49' : row.shift === 'PM' ? '#311042' : '#3b0764',
+                                            color: row.shift === 'AM' ? '#7dd3fc' : row.shift === 'PM' ? '#a5b4fc' : '#e9d5ff',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)'
+                                        }}>
+                                            {row.shift}
+                                        </span>
+                                    </div>
+
+                                    {/* Staff ID */}
+                                    <div style={{ flex: '1.2', fontSize: '14px', fontFamily: 'monospace', color: '#94a3b8' }}>
+                                        {row.absent_staff_id}
+                                    </div>
+
+                                    {/* Staff Name */}
+                                    <div style={{ flex: '2.5', fontSize: '14px', fontWeight: '600', color: '#ffffff' }}>
+                                        {row.staff_name || '—'}
+                                    </div>
+
+                                    {/* Position */}
+                                    <div style={{ flex: '2', fontSize: '14px', color: '#94a3b8' }}>
+                                        {row.role || '—'}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
