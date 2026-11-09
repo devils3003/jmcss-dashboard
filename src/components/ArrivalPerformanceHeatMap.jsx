@@ -8,52 +8,89 @@ export default function ArrivalPerformanceHeatMap() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchHeatMap = async () => {
-  setLoading(true);
-  setError(null);
+ const fetchHeatMap = async () => {
+    setLoading(true);
+    setError(null);
 
-  try {
-    // Query our unified v_run_manager_with_coverage view for both AM and PM
-    let query = supabase
-      .from('v_run_manager_with_coverage')
-      .select('*')
-      .eq('record_date', weekStartDate); // or your date column filter
+    try {
+      // 1. Fetch runs from the view
+      let query = supabase
+        .from('v_run_manager_with_coverage')
+        .select('*')
+        .eq('week_start_date', weekStartDate);
 
-    // Filter AM vs PM based on the _DO suffix in run_id
-    if (shiftMode === 'PM') {
-      query = query.ilike('run_id', '%_DO%');
-    } else {
-      query = query.not.ilike('run_id', '%_DO%');
+      if (shiftMode === 'PM') {
+        query = query.ilike('run_id', '%_DO%');
+      } else {
+        query = query.not('run_id', 'ilike', '%_DO%');
+      }
+
+      const { data: runsData, error: fetchErr } = await query.order('school_name', { ascending: true });
+      if (fetchErr) throw fetchErr;
+
+      // 2. Fetch student counts from the run_student_counts table
+      const { data: countsData, error: countsErr } = await supabase
+        .from('run_student_counts')
+        .select('run_id, student_count');
+
+      if (countsErr) {
+        console.warn('Could not fetch student counts:', countsErr);
+      }
+
+      // Create a quick lookup map: { [run_id]: student_count }
+      const countsMap = {};
+      if (countsData) {
+        countsData.forEach(item => {
+          countsMap[item.run_id] = Number(item.student_count || 0);
+        });
+      }
+
+      // 3. Attach student counts to each run record
+      const formattedData = (runsData || []).map(row => ({
+        ...row,
+        estimated_impacted_students: countsMap[row.run_id] || 0
+      }));
+
+      setHeatmapData(formattedData);
+    } catch (err) {
+      console.error(`Error loading ${shiftMode} heatmap:`, err);
+      setError(`DB Error [${err.code || 'UNKNOWN'}]: ${err.message || 'No message'} | Details: ${err.details || 'None'}`);
+    } finally {
+      setLoading(false);
     }
-
-    const { data, error: fetchErr } = await query.order('school_name', { ascending: true });
-
-    if (fetchErr) throw fetchErr;
-    setHeatmapData(data || []);
-  } catch (err) {
-    console.error(`Error loading ${shiftMode} heatmap:`, err);
-    setError(`Failed to load ${shiftMode} heatmap data.`);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchHeatMap();
   }, [shiftMode, weekStartDate]);
 
-  // Aggregate Metrics (Only counting active, non-omitted runs)
+  // Aggregate Metrics with shiftMode included in dependencies
   const metrics = useMemo(() => {
     const activeData = heatmapData.filter((r) => !r.exclude_from_heatmap);
     const total = activeData.length;
-    const lateRuns = activeData.filter((r) => Number(r.minutes_late || 0) > 10).length;
-    const onTimeRuns = activeData.filter((r) => Number(r.minutes_late || 0) <= 10).length;
-    const impactedStudents = activeData
-      .filter((r) => Number(r.minutes_late || 0) > 10)
-      .reduce((sum, r) => sum + Number(r.estimated_impacted_students || 0), 0);
 
-    return { total, lateRuns, onTimeRuns, impactedStudents };
-  }, [heatmapData]);
+    const delayedRuns = activeData.filter((r) => {
+      const minutesLate = Number(r.calculated_minutes_late ?? r.minutes_late ?? 0);
+      return minutesLate > 10;
+    });
+
+    const lateruns = delayedRuns.length;
+    const onTimeruns = total - lateruns;
+
+    const impactedStudents = delayedRuns.reduce(
+      (sum, r) => sum + Number(r.estimated_impacted_students || r.student_count || r.total_students || 0), 
+      0
+    );
+
+    return { 
+      total, 
+      lateruns, 
+      delayed: lateruns, 
+      onTimeruns, 
+      onTime: onTimeruns, 
+      impactedStudents 
+    };
+  }, [heatmapData, shiftMode]);
 
 const getRunColorClass = (run) => {
     if (run.is_second_run || run.is_covered_run || run.run_tag === 'Second' || run.run_tag === 'Covered') {
@@ -62,7 +99,8 @@ const getRunColorClass = (run) => {
     if (run.exclude_from_heatmap || run.run_tag === 'Ignore') {
       return 'bg-gray-800 text-gray-500 border-gray-700';
     }
-    const minutesLate = Number(run.minutes_late || run.delay_minutes || 0);
+    
+    const minutesLate = Number(run.calculated_minutes_late ?? run.minutes_late ?? run.delay_minutes ?? 0);
     if (minutesLate > 10) {
       return 'bg-red-950 text-red-200 border-red-700';
     }
@@ -84,9 +122,9 @@ const getRunColorClass = (run) => {
     });
 
     return Object.entries(groups).map(([schoolName, runs]) => {
-      const lateCount = runs.filter((r) => Number(r.minutes_late || 0) > 10).length;
+      const lateCount = runs.filter((r) => Number(r.calculated_minutes_late || 0) > 10).length;
       const totalImpactedStudents = runs
-        .filter((r) => Number(r.minutes_late || 0) > 10)
+        .filter((r) => Number(r.calculated_minutes_late || 0) > 10)
         .reduce((sum, r) => sum + Number(r.estimated_impacted_students || 0), 0);
 
       const targetTime = shiftMode === 'AM'
@@ -231,24 +269,27 @@ const getRunColorClass = (run) => {
       </div>
 
       {/* KPI Stats Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Total Active Runs</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#f8fafc', marginTop: '2px' }}>{metrics.total}</div>
-        </div>
-        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>On-Time (&le;10m)</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>{metrics.onTimeRuns}</div>
-        </div>
-        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Delayed (&gt;10m)</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#ef4444', marginTop: '2px' }}>{metrics.lateRuns}</div>
-        </div>
-        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Impacted Students</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#f59e0b', marginTop: '2px' }}>{metrics.impactedStudents}</div>
-        </div>
-      </div>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Total Active Runs</span>
+    <div style={{ fontSize: '26px', fontWeight: '800', color: '#f8fafc', marginTop: '2px' }}>{metrics?.total ?? 0}</div>
+  </div>
+
+  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>On-Time (&le;10m)</span>
+    <div style={{ fontSize: '26px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>{metrics?.onTimeruns ?? 0}</div>
+  </div>
+
+  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Delayed (&gt;10m)</span>
+    <div style={{ fontSize: '26px', fontWeight: '800', color: '#ef4444', marginTop: '2px' }}>{metrics?.lateruns ?? 0}</div>
+  </div>
+
+  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Estimated Impacted Students</span>
+    <div style={{ fontSize: '26px', fontWeight: '800', color: '#f59e0b', marginTop: '2px' }}>{metrics?.impactedStudents ?? 0}</div>
+  </div>
+</div>
 
       {/* School Cards Grid */}
       {loading ? (
@@ -315,7 +356,7 @@ const getRunColorClass = (run) => {
                 {/* Run Pill Chips Container (Active Runs Only) */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {group.runs.map((row) => {
-                    const minutesLate = Number(row.minutes_late || 0);
+                    const minutesLate = Number(row.calculated_minutes_late || 0);
     const isSecond = row.is_second_run;
     const isCovered = row.is_covered_run;
     const isLate = minutesLate > 10;
