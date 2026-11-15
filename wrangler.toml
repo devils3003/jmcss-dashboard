@@ -1,0 +1,8 @@
+name = "jmcss-dashboard"
+compatibility_date = "2026-11-15"
+
+[pages_build_output_dir]
+output_dir = "dist"
+
+[build]
+command = "npm install --legacy-peer-deps && npm run build"
