@@ -1,1 +1,49 @@
 @import "tailwindcss";
+
+/* Make native date picker calendar icons bright amber/orange on dark backgrounds */
+input[type="date"] {
+    color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(66%) sepia(89%) saturate(1635%) hue-rotate(349deg) brightness(101%) contrast(97%);
+    opacity: 0.9;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Print Stylesheet */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    body,
+    #root,
+    div {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    table {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+        width: 100% !important;
+    }
+
+    th {
+        background-color: #f2f2f2 !important;
+        color: #000000 !important;
+        border-bottom: 2px solid #000000 !important;
+    }
+
+    td {
+        border-bottom: 1px solid #dddddd !important;
+        color: #000000 !important;
+    }
+}

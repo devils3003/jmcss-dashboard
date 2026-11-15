@@ -10,16 +10,109 @@ export default function AbsenceForm({ onLogAdded }) {
   const [absentStaffId, setAbsentStaffId] = useState('')
   const [notes, setNotes] = useState('')
   const [absentSearchText, setAbsentSearchText] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const getWeekdayDates = (startStr, endStr) => {
+    if (!startStr) return []
+    if (!endStr || endStr <= startStr) return [startStr]
+
+    const [sY, sM, sD] = startStr.split('-').map(Number)
+    const [eY, eM, eD] = endStr.split('-').map(Number)
+    const current = new Date(sY, sM - 1, sD)
+    const last = new Date(eY, eM - 1, eD)
+
+    const dates = []
+    while (current <= last) {
+      const dayOfWeek = current.getDay()
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        const yyyy = current.getFullYear()
+        const mm = String(current.getMonth() + 1).padStart(2, '0')
+        const dd = String(current.getDate()).padStart(2, '0')
+        dates.push(`${yyyy}-${mm}-${dd}`)
+      }
+      current.setDate(current.getDate() + 1)
+    }
+    return dates
+  }
+
+  const createEmptyAssignment = () => ({
+    missed_run_id: '',
+    covering_staff_id: '',
+    notes: '',
+    selected_route_id: '',
+    covering_search_text: ''
+  })
 
   const [assignments, setAssignments] = useState([
-    { 
-      missed_run_id: '', 
-      covering_staff_id: '', 
-      notes: '', 
-      selected_route_id: '', 
-      covering_search_text: '' 
-    }
+    createEmptyAssignment(),
+    createEmptyAssignment()
   ])
+
+  const getAutoRunsForRouteAndShift = (routeId, currentShift) => {
+    if (!routeId || currentShift === 'Midday') return []
+
+    const routeRuns = runsList.filter(
+      (r) => String(r.route_id) === String(routeId)
+    )
+
+    const amRuns = routeRuns.filter((r) => {
+      const id = String(r.run_id || '').toUpperCase()
+      return !id.endsWith('_DO') && !id.includes('MID')
+    })
+
+    const pmRuns = routeRuns.filter((r) => {
+      const id = String(r.run_id || '').toUpperCase()
+      return id.endsWith('_DO')
+    })
+
+    if (currentShift === 'AM') return amRuns
+    if (currentShift === 'PM') return pmRuns
+    if (currentShift === 'Both') return [...amRuns, ...pmRuns]
+    return []
+  }
+
+  const handleShiftChange = (newShift) => {
+    setShift(newShift)
+    const targetCount = newShift === 'Both' ? 4 : newShift === 'Midday' ? 1 : 2
+
+    setAssignments((prev) => {
+      const firstRouteId = prev[0]?.selected_route_id || ''
+      const autoRuns = getAutoRunsForRouteAndShift(firstRouteId, newShift)
+
+      if (firstRouteId && newShift !== 'Midday' && autoRuns.length > 0) {
+        const rowCount = Math.max(targetCount, autoRuns.length)
+        return Array.from({ length: rowCount }, (_, i) => ({
+          ...createEmptyAssignment(),
+          selected_route_id: firstRouteId,
+          missed_run_id: autoRuns[i]?.run_id || '',
+          covering_staff_id: prev[i]?.covering_staff_id || '',
+          covering_search_text: prev[i]?.covering_search_text || '',
+          notes: prev[i]?.notes || '',
+        }))
+      }
+
+      const populatedRows = prev.filter(
+        (row) =>
+          row.missed_run_id ||
+          row.covering_staff_id ||
+          row.notes ||
+          row.selected_route_id
+      )
+
+      if (populatedRows.length === 0) {
+        return Array.from({ length: targetCount }, () => createEmptyAssignment())
+      }
+
+      if (populatedRows.length < targetCount) {
+        const extraNeeded = targetCount - populatedRows.length
+        return [
+          ...populatedRows,
+          ...Array.from({ length: extraNeeded }, () => createEmptyAssignment()),
+        ]
+      }
+
+      return populatedRows
+    })
+  }
 
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -65,7 +158,7 @@ export default function AbsenceForm({ onLogAdded }) {
     return fullName.includes(absentSearchText.toLowerCase())
   })
 
-  const uniqueRouteIds = [...new Set(runsList.map(run => run.route_id).filter(Boolean))].sort((a, b) => 
+  const uniqueRouteIds = [...new Set(runsList.map(run => run.route_id).filter(Boolean))].sort((a, b) =>
     String(a).localeCompare(String(b), undefined, { numeric: true })
   )
 
@@ -79,8 +172,30 @@ export default function AbsenceForm({ onLogAdded }) {
 
   const handleAssignmentChange = (index, field, value) => {
     const updated = [...assignments]
-    updated[index][field] = value
-    if (field === 'selected_route_id') updated[index]['missed_run_id'] = ''
+    updated[index] = { ...updated[index], [field]: value }
+
+    if (field === 'selected_route_id') {
+      updated[index].missed_run_id = ''
+
+      // Auto-populate runs across rows when selecting a route in row 1 (ignored for Midday)
+      if (index === 0 && value && shift !== 'Midday') {
+        const autoRuns = getAutoRunsForRouteAndShift(value, shift)
+        if (autoRuns.length > 0) {
+          const targetCount = Math.max(updated.length, autoRuns.length)
+          const nextAssignments = Array.from({ length: targetCount }, (_, i) => {
+            const existing = updated[i] || createEmptyAssignment()
+            return {
+              ...existing,
+              selected_route_id: value,
+              missed_run_id: autoRuns[i]?.run_id || '',
+            }
+          })
+          setAssignments(nextAssignments)
+          return
+        }
+      }
+    }
+
     setAssignments(updated)
   }
 
@@ -89,9 +204,23 @@ export default function AbsenceForm({ onLogAdded }) {
     setLoading(true)
     setMessage('')
 
+    const targetDates = getWeekdayDates(absenceDate, endDate)
+    if (targetDates.length === 0) {
+      setMessage('No valid weekdays found in the selected date range.')
+      setLoading(false)
+      return
+    }
+
+    const logPayloads = targetDates.map((d) => ({
+      absence_date: d,
+      shift: shift,
+      absent_staff_id: absentStaffId,
+      notes: notes,
+    }))
+
     const { data: logData, error: logError } = await supabase
       .from('coverage_logs')
-      .insert([{ absence_date: absenceDate, shift: shift, absent_staff_id: absentStaffId, notes: notes }])
+      .insert(logPayloads)
       .select()
 
     if (logError) {
@@ -100,18 +229,27 @@ export default function AbsenceForm({ onLogAdded }) {
       return
     }
 
-    const createdLogId = logData[0]?.id
-    const validAssignments = assignments
-      .filter((a) => a.missed_run_id || a.covering_staff_id)
-      .map((a) => ({
-        coverage_log_id: createdLogId,
-        missed_run_id: a.missed_run_id || null,
-        covering_staff_id: a.covering_staff_id || null,
-        notes: a.notes || null
-      }))
+    const populatedAssignments = assignments.filter(
+      (a) => a.missed_run_id || a.covering_staff_id
+    )
 
-    if (validAssignments.length > 0) {
-      const { error: assignError } = await supabase.from('coverage_assignments').insert(validAssignments)
+    if (populatedAssignments.length > 0 && logData && logData.length > 0) {
+      const allAssignments = []
+      logData.forEach((createdLog) => {
+        populatedAssignments.forEach((a) => {
+          allAssignments.push({
+            coverage_log_id: createdLog.id,
+            missed_run_id: a.missed_run_id || null,
+            covering_staff_id: a.covering_staff_id || null,
+            notes: a.notes || null,
+          })
+        })
+      })
+
+      const { error: assignError } = await supabase
+        .from('coverage_assignments')
+        .insert(allAssignments)
+
       if (assignError) {
         setMessage('Absence saved, but assignment error: ' + assignError.message)
         setLoading(false)
@@ -119,12 +257,19 @@ export default function AbsenceForm({ onLogAdded }) {
       }
     }
 
-    setMessage('Coverage log recorded successfully!')
-    setLoading(false)
+    setMessage(
+      targetDates.length > 1
+        ? `Successfully logged ${targetDates.length} weekday absences (${targetDates[0]} through ${targetDates[targetDates.length - 1]})!`
+        : 'Absence and coverage logged successfully!'
+    )
+    setAbsenceDate('')
+    setEndDate('')
+    setShift('AM')
     setAbsentStaffId('')
     setAbsentSearchText('')
     setNotes('')
-    setAssignments([{ missed_run_id: '', covering_staff_id: '', notes: '', selected_route_id: '', covering_search_text: '' }])
+    setAssignments([createEmptyAssignment(), createEmptyAssignment()])
+    setLoading(false)
     if (onLogAdded) onLogAdded()
   }
 
@@ -141,14 +286,34 @@ export default function AbsenceForm({ onLogAdded }) {
       )}
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '18px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontWeight: '600', color: '#cbd5e1' }}>Absence Date:</label>
-            <input type="date" required value={absenceDate} onChange={(e) => setAbsenceDate(e.target.value)} style={inputStyle} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
+          <div style={{ flex: 1, minWidth: '180px' }}>
+            <label style={{ fontWeight: '600', color: '#cbd5e1' }}>
+              {endDate ? 'Start Date:' : 'Absence Date:'}
+            </label>
+            <input
+              type="date"
+              required
+              value={absenceDate}
+              onChange={(e) => setAbsenceDate(e.target.value)}
+              style={inputStyle}
+            />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: '180px' }}>
+            <label style={{ fontWeight: '600', color: '#cbd5e1' }}>
+              End Date <span style={{ fontWeight: '400', color: '#94a3b8' }}>(Optional - Multi-Day)</span>:
+            </label>
+            <input
+              type="date"
+              min={absenceDate || undefined}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: '180px' }}>
             <label style={{ fontWeight: '600', color: '#cbd5e1' }}>Shift:</label>
-            <select value={shift} onChange={(e) => setShift(e.target.value)} style={inputStyle}>
+            <select value={shift} onChange={(e) => handleShiftChange(e.target.value)} style={inputStyle}>
               <option value="AM">AM</option>
               <option value="PM">PM</option>
               <option value="Midday">Midday</option>
@@ -157,6 +322,23 @@ export default function AbsenceForm({ onLogAdded }) {
           </div>
         </div>
 
+        {absenceDate && endDate && endDate > absenceDate && (
+          <div
+            style={{
+              marginBottom: '16px',
+              padding: '8px 12px',
+              background: '#1e293b',
+              border: '1px solid #334155',
+              borderRadius: '6px',
+              color: '#fbbf24',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+            }}
+          >
+            Multi-Day Leave Active: Will create {getWeekdayDates(absenceDate, endDate).length} weekday entries (Mon–Fri, skipping weekends).
+          </div>
+        )}
+
         <div style={{ marginBottom: '22px', padding: '12px', background: '#1e293b', borderRadius: '8px' }}>
           <label style={{ fontWeight: '600', color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>Absent Staff Member:</label>
           <input type="text" placeholder="Type name to filter absent staff list..." value={absentSearchText} onChange={(e) => setAbsentSearchText(e.target.value)} style={searchInputStyle} />
@@ -164,7 +346,7 @@ export default function AbsenceForm({ onLogAdded }) {
             <option value="">-- Select Absent Staff ({filteredAbsentStaffList.length} found) --</option>
             {filteredAbsentStaffList.map(person => (
               <option key={person['Staff ID']} value={person['Staff ID']}>
-               {(person['First Name'] || '') + ' ' + (person['Last Name'] || '')}
+                {(person['First Name'] || '') + ' ' + (person['Last Name'] || '')}
               </option>
             ))}
           </select>

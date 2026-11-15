@@ -86,6 +86,45 @@ export default function AbsenceReport() {
         fetchReport();
     }, [startDate, endDate]);
 
+    // Delete Absence Record with Repeat-Date Security Check
+    const handleDeleteAbsence = async (row) => {
+        const staffDisplay = row.staff_name || row.absent_staff_name || `Staff #${row.absent_staff_id}`;
+        const targetDate = String(row.absence_date || '').trim();
+
+        if (!window.confirm(`Delete ${row.shift} absence record for ${staffDisplay} on ${targetDate}?`)) {
+            return;
+        }
+
+        const typedDate = window.prompt(`SECURITY CHECK: Type the absence date (${targetDate}) to confirm deletion:`);
+        if (typedDate === null) return; // User clicked Cancel
+        if (typedDate.trim() !== targetDate) {
+            alert('Verification failed! Date did not match.');
+            return;
+        }
+
+        try {
+            // 1. Delete linked coverage_assignments first to prevent foreign key constraint errors
+            const { error: assignErr } = await supabase
+                .from('coverage_assignments')
+                .delete()
+                .eq('coverage_log_id', row.log_id);
+
+            if (assignErr) throw assignErr;
+
+            // 2. Delete the parent coverage_logs record
+            const { error: logErr } = await supabase
+                .from('coverage_logs')
+                .delete()
+                .eq('id', row.log_id);
+
+            if (logErr) throw logErr;
+
+            fetchReport();
+        } catch (err) {
+            console.error('Error deleting absence record:', err);
+            alert(`Delete failed: ${err.message}`);
+        }
+    };
     // Client-side Filtered Records
     const filteredData = useMemo(() => {
         return reportData.filter((row) => {
@@ -185,8 +224,11 @@ export default function AbsenceReport() {
                     <p className="text-sm text-slate-400 mt-1">
                         Track driver absences, coverage execution, and correlated late arrival impacts (&gt;10m delays)
                     </p>
+                    <p className="hidden print:block text-xs font-semibold mt-1">
+                        Report Period: {startDate} to {endDate}
+                    </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 no-print">
                     {/* Quick Filter: Uncovered Toggle */}
                     <button
                         onClick={() => setStatusFilter((prev) => (prev === 'Uncovered' ? 'ALL' : 'Uncovered'))}
@@ -234,7 +276,7 @@ export default function AbsenceReport() {
             </div>
 
             {/* Date Presets Toolbar */}
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800 no-print">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Date Presets:</span>
                 <div className="flex flex-wrap items-center gap-2">
                     {[
@@ -259,7 +301,7 @@ export default function AbsenceReport() {
             </div>
 
             {/* Filter Inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 my-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700/60">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 my-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 no-print">
                 <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Start Date</label>
                     <input
@@ -335,32 +377,32 @@ export default function AbsenceReport() {
             </div>
 
             {/* KPI Cards (5 Metrics) */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6 print:grid-cols-5 print:gap-2">
                 <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Absences</p>
-                    <p className="text-3xl font-extrabold text-white mt-2">{metrics.total}</p>
+                    <p className="text-3xl font-extrabold text-white mt-2 print:text-xl">{metrics.total}</p>
                     <p className="text-xs text-slate-400 mt-1">
                         {metrics.drivers} Drivers | {metrics.attendants} Attendants
                     </p>
                 </div>
                 <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Shift Coverage Rate</p>
-                    <p className="text-3xl font-extrabold text-blue-400 mt-2">{metrics.rate}%</p>
+                    <p className="text-3xl font-extrabold text-blue-400 mt-2 print:text-xl">{metrics.rate}%</p>
                     <p className="text-xs text-slate-400 mt-1">{metrics.fullyCovered} fully covered</p>
                 </div>
                 <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Split Coverage Shifts</p>
-                    <p className="text-3xl font-extrabold text-amber-400 mt-2">{metrics.split}</p>
+                    <p className="text-3xl font-extrabold text-amber-400 mt-2 print:text-xl">{metrics.split}</p>
                     <p className="text-xs text-slate-400 mt-1">Multi-driver run splits</p>
                 </div>
                 <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Uncovered Shifts</p>
-                    <p className="text-3xl font-extrabold text-rose-400 mt-2">{metrics.uncovered}</p>
+                    <p className="text-3xl font-extrabold text-rose-400 mt-2 print:text-xl">{metrics.uncovered}</p>
                     <p className="text-xs text-slate-400 mt-1">Open shifts requiring resolution</p>
                 </div>
-                <div className="bg-slate-800/80 border border-amber-500/30 bg-amber-950/20 rounded-xl p-4 shadow-sm col-span-2 lg:col-span-1">
+                <div className="border border-amber-500/30 bg-amber-950/20 rounded-xl p-4 shadow-sm col-span-2 lg:col-span-1 print:col-span-1">
                     <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Late Bus Impact</p>
-                    <p className="text-3xl font-extrabold text-amber-300 mt-2">{metrics.totalLateImpactRuns}</p>
+                    <p className="text-3xl font-extrabold text-amber-300 mt-2 print:text-xl ">{metrics.totalLateImpactRuns}</p>
                     <p className="text-xs text-amber-400/80 mt-1">Runs &gt;10m late from absences</p>
                 </div>
             </div>
@@ -376,12 +418,13 @@ export default function AbsenceReport() {
                 ) : (
                     <div className="w-full space-y-3">
                         {/* Header Row */}
-                        <div style={{ display: 'flex', backgroundColor: '#1e293b', padding: '12px 24px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#1e293b', padding: '12px 24px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             <div style={{ flex: '1.2' }}>Date</div>
                             <div style={{ flex: '1' }}>Shift</div>
                             <div style={{ flex: '1.2' }}>Staff ID</div>
                             <div style={{ flex: '2.5' }}>Absent Staff</div>
                             <div style={{ flex: '2' }}>Position</div>
+                            <div className="no-print" style={{ flex: '0.8', textAlign: 'right' }}>Action</div>
                         </div>
 
                         {/* Data Rows */}
@@ -399,12 +442,12 @@ export default function AbsenceReport() {
                                         border: hasLateImpact ? '1px solid rgba(153, 27, 27, 0.4)' : '1px solid rgba(30, 41, 59, 0.6)'
                                     }}
                                 >
-                                    {/* Date */}
+                                    {/* 1. Date */}
                                     <div style={{ flex: '1.2', fontSize: '14px', color: '#cbd5e1', fontWeight: '500' }}>
                                         {row.absence_date}
                                     </div>
 
-                                    {/* Shift Badge */}
+                                    {/* 2. Shift Badge */}
                                     <div style={{ flex: '1' }}>
                                         <span style={{
                                             padding: '4px 10px',
@@ -420,19 +463,30 @@ export default function AbsenceReport() {
                                         </span>
                                     </div>
 
-                                    {/* Staff ID */}
+                                    {/* 3. Staff ID */}
                                     <div style={{ flex: '1.2', fontSize: '14px', fontFamily: 'monospace', color: '#94a3b8' }}>
                                         {row.absent_staff_id}
                                     </div>
 
-                                    {/* Staff Name */}
+                                    {/* 4. Staff Name */}
                                     <div style={{ flex: '2.5', fontSize: '14px', fontWeight: '600', color: '#ffffff' }}>
                                         {row.staff_name || '—'}
                                     </div>
 
-                                    {/* Position */}
+                                    {/* 5. Position */}
                                     <div style={{ flex: '2', fontSize: '14px', color: '#94a3b8' }}>
                                         {row.role || '—'}
+                                    </div>
+
+                                    {/* 6. Delete Action (Far Right) */}
+                                    <div className="no-print" style={{ flex: '0.8', textAlign: 'right' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteAbsence(row)}
+                                            className="px-2.5 py-1 bg-red-600/80 hover:bg-red-600 text-white text-xs font-semibold rounded transition cursor-pointer"
+                                        >
+                                            Delete
+                                        </button>
                                     </div>
                                 </div>
                             );
