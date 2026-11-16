@@ -216,7 +216,7 @@ export default function AbsenceReport() {
     };
 
     return (
-        <div className="bg-slate-900 text-slate-100 min-h-screen p-6 font-sans">
+        <div className="report-container bg-slate-900 text-slate-100 min-h-screen p-6 font-sans">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
                 <div>

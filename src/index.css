@@ -19,16 +19,40 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* Print Stylesheet */
 @media print {
-    .no-print {
+
+    .no-print,
+    .no-print * {
         display: none !important;
     }
 
+    /* Target only the heat map container for dark mode and precise printing */
+    #printable-heatmap {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background-color: #0b0f19 !important;
+        color: #f3f4f6 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .school-card-print {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* Ensure standard reports print cleanly on white without being hidden */
+    .report-container,
     body,
-    #root,
-    div {
+    html {
         background-color: #ffffff !important;
         color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
+
 
     table {
         border: 1px solid #000000 !important;

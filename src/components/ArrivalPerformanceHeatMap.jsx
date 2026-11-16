@@ -8,7 +8,7 @@ export default function ArrivalPerformanceHeatMap() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
- const fetchHeatMap = async () => {
+  const fetchHeatMap = async () => {
     setLoading(true);
     setError(null);
 
@@ -78,28 +78,28 @@ export default function ArrivalPerformanceHeatMap() {
     const onTimeruns = total - lateruns;
 
     const impactedStudents = delayedRuns.reduce(
-      (sum, r) => sum + Number(r.estimated_impacted_students || r.student_count || r.total_students || 0), 
+      (sum, r) => sum + Number(r.estimated_impacted_students || r.student_count || r.total_students || 0),
       0
     );
 
-    return { 
-      total, 
-      lateruns, 
-      delayed: lateruns, 
-      onTimeruns, 
-      onTime: onTimeruns, 
-      impactedStudents 
+    return {
+      total,
+      lateruns,
+      delayed: lateruns,
+      onTimeruns,
+      onTime: onTimeruns,
+      impactedStudents
     };
   }, [heatmapData, shiftMode]);
 
-const getRunColorClass = (run) => {
+  const getRunColorClass = (run) => {
     if (run.is_second_run || run.is_covered_run || run.run_tag === 'Second' || run.run_tag === 'Covered') {
       return 'bg-blue-600 text-blue-100 border-blue-400';
     }
     if (run.exclude_from_heatmap || run.run_tag === 'Ignore') {
       return 'bg-gray-800 text-gray-500 border-gray-700';
     }
-    
+
     const minutesLate = Number(run.calculated_minutes_late ?? run.minutes_late ?? run.delay_minutes ?? 0);
     if (minutesLate > 10) {
       return 'bg-red-950 text-red-200 border-red-700';
@@ -150,37 +150,6 @@ const getRunColorClass = (run) => {
   return (
     <div id="printable-heatmap" style={{ padding: '4px' }}>
       {/* Global Print Isolation CSS */}
-      <style>
-        {`
-          @media print {
-            body * {
-              visibility: hidden !important;
-            }
-            #printable-heatmap, #printable-heatmap * {
-              visibility: visible !important;
-            }
-            #printable-heatmap {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 100% !important;
-              background-color: #020617 !important;
-              color: #f8fafc !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            .no-print, .no-print * {
-              display: none !important;
-              visibility: hidden !important;
-            }
-            .school-card-print {
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              margin-bottom: 16px !important;
-            }
-          }
-        `}
-      </style>
 
       {/* Header & Controls Toolbar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
@@ -269,27 +238,27 @@ const getRunColorClass = (run) => {
       </div>
 
       {/* KPI Stats Bar */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Total Active Runs</span>
-    <div style={{ fontSize: '26px', fontWeight: '800', color: '#f8fafc', marginTop: '2px' }}>{metrics?.total ?? 0}</div>
-  </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Total Active Runs</span>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: '#f8fafc', marginTop: '2px' }}>{metrics?.total ?? 0}</div>
+        </div>
 
-  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>On-Time (&le;10m)</span>
-    <div style={{ fontSize: '26px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>{metrics?.onTimeruns ?? 0}</div>
-  </div>
+        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>On-Time (&le;10m)</span>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>{metrics?.onTimeruns ?? 0}</div>
+        </div>
 
-  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Delayed (&gt;10m)</span>
-    <div style={{ fontSize: '26px', fontWeight: '800', color: '#ef4444', marginTop: '2px' }}>{metrics?.lateruns ?? 0}</div>
-  </div>
+        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Delayed (&gt;10m)</span>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: '#ef4444', marginTop: '2px' }}>{metrics?.lateruns ?? 0}</div>
+        </div>
 
-  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
-    <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Estimated Impacted Students</span>
-    <div style={{ fontSize: '26px', fontWeight: '800', color: '#f59e0b', marginTop: '2px' }}>{metrics?.impactedStudents ?? 0}</div>
-  </div>
-</div>
+        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '14px 18px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>Estimated Impacted Students</span>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: '#f59e0b', marginTop: '2px' }}>{metrics?.impactedStudents ?? 0}</div>
+        </div>
+      </div>
 
       {/* School Cards Grid */}
       {loading ? (
@@ -357,35 +326,35 @@ const getRunColorClass = (run) => {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {group.runs.map((row) => {
                     const minutesLate = Number(row.calculated_minutes_late || 0);
-    const isSecond = row.is_second_run;
-    const isCovered = row.is_covered_run;
-    const isLate = minutesLate > 10;
-    const studentCount = Number(row.estimated_impacted_students || 0);
+                    const isSecond = row.is_second_run;
+                    const isCovered = row.is_covered_run;
+                    const isLate = minutesLate > 10;
+                    const studentCount = Number(row.estimated_impacted_students || 0);
 
-    // Prioritize Second / Covered (Blue) FIRST, then Late (Red), then On-Time (Green)
-    const pillBg = isSecond
-      ? '#1e3a8a'     // Deep blue for second run
-      : isCovered
-      ? '#1e3a8a'     // Blue for covered run (or use #064e3b if you want distinct greens/blues)
-      : isLate
-      ? '#7f1d1d'     // Red for late
-      : '#064e3b';    // Green for on-time
+                    // Prioritize Second / Covered (Blue) FIRST, then Late (Red), then On-Time (Green)
+                    const pillBg = isSecond
+                      ? '#1e3a8a'     // Deep blue for second run
+                      : isCovered
+                        ? '#1e3a8a'     // Blue for covered run (or use #064e3b if you want distinct greens/blues)
+                        : isLate
+                          ? '#7f1d1d'     // Red for late
+                          : '#064e3b';    // Green for on-time
 
-    const pillBorder = isSecond
-      ? '#3b82f6'     // Bright blue border
-      : isCovered
-      ? '#3b82f6'     // Bright blue border
-      : isLate
-      ? '#ef4444'     // Red border
-      : '#10b981';    // Green border
+                    const pillBorder = isSecond
+                      ? '#3b82f6'     // Bright blue border
+                      : isCovered
+                        ? '#3b82f6'     // Bright blue border
+                        : isLate
+                          ? '#ef4444'     // Red border
+                          : '#10b981';    // Green border
 
-    const pillTextColor = isSecond
-      ? '#93c5fd'     // Light blue text
-      : isCovered
-      ? '#93c5fd'     // Light blue text
-      : isLate
-      ? '#fca5a5'     // Light red text
-      : '#6ee7b7';    // Light green text
+                    const pillTextColor = isSecond
+                      ? '#93c5fd'     // Light blue text
+                      : isCovered
+                        ? '#93c5fd'     // Light blue text
+                        : isLate
+                          ? '#fca5a5'     // Light red text
+                          : '#6ee7b7';    // Light green text
 
                     return (
                       <div
@@ -413,16 +382,16 @@ const getRunColorClass = (run) => {
                           ({row.avg_arrival_time || '—'})
                         </span>
                         <span style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>
-  {isSecond ? (
-    `2ND RUN`
-  ) : isCovered ? (
-    `COVERED`
-  ) : isLate ? (
-    `+${minutesLate}m LATE`
-  ) : (
-    `ON-TIME`
-  )}
-</span>
+                          {isSecond ? (
+                            `2ND RUN`
+                          ) : isCovered ? (
+                            `COVERED`
+                          ) : isLate ? (
+                            `+${minutesLate}m LATE`
+                          ) : (
+                            `ON-TIME`
+                          )}
+                        </span>
                         {studentCount > 0 && (
                           <span
                             style={{

@@ -586,7 +586,7 @@ export default function StipendTracker() {
                                         <th className="p-2.5 text-center">Total Hrs</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800">
+                                <tbody className="divide-y divide-slate-800 text-slate-100">
                                     {auditMatrixRows.map((row) => {
                                         const empName = `${row.lastName || ''}, ${row.firstName || ''}`.trim();
                                         const formattedName =

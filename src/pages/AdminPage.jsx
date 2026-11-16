@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import RunCountsUploader from '../components/RunCountsUploader';
 
 export default function AdminPage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -102,8 +103,8 @@ export default function AdminPage() {
                                 key={tab.id}
                                 onClick={() => setSearchParams({ tab: tab.id })}
                                 className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${activeTab === tab.id
-                                        ? 'bg-amber-600 text-white shadow'
-                                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                    ? 'bg-amber-600 text-white shadow'
+                                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
                                     }`}
                             >
                                 {tab.label}
@@ -123,8 +124,8 @@ export default function AdminPage() {
                             {statusMsg && (
                                 <div
                                     className={`mb-4 p-3 rounded-lg text-xs font-medium ${statusMsg.type === 'error'
-                                            ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                        ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                                         }`}
                                 >
                                     {statusMsg.text}
@@ -254,8 +255,8 @@ export default function AdminPage() {
                                                         <td className="py-2.5 px-3">
                                                             <span
                                                                 className={`text-xs px-2 py-0.5 rounded-full font-medium ${isActive
-                                                                        ? 'bg-emerald-500/10 text-emerald-400'
-                                                                        : 'bg-slate-800 text-slate-400'
+                                                                    ? 'bg-emerald-500/10 text-emerald-400'
+                                                                    : 'bg-slate-800 text-slate-400'
                                                                     }`}
                                                             >
                                                                 {isActive ? 'Yes' : 'No'}
@@ -291,11 +292,18 @@ export default function AdminPage() {
                 )}
 
                 {activeTab === 'cleanup' && (
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center">
-                        <h2 className="text-lg font-bold text-white">Database Audit & Record Cleanup</h2>
-                        <p className="text-sm text-slate-400 mt-1">
-                            Ready to connect for duplicate arrival upload cleanup and coverage log fixes.
-                        </p>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-6">
+                        <div>
+                            <h2 className="text-lg font-bold text-white">Database Audit & Record Cleanup</h2>
+                            <p className="text-sm text-slate-400 mt-1">
+                                Ready to connect for duplicate arrival upload cleanup and coverage log fixes.
+                            </p>
+                        </div>
+
+                        {/* Drop your CSV Run Counts Uploader component right here */}
+                        <div className="flex justify-center">
+                            <RunCountsUploader onUploadComplete={() => console.log('Run counts updated successfully')} />
+                        </div>
                     </div>
                 )}
             </div>
